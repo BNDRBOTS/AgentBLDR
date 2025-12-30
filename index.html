@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KlusterFlow: Enterprise Lux</title>
+  <title>KlusterFlow: Enterprise Lux v2</title>
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -51,11 +51,6 @@
     .glass {
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-    }
-
-    /* Grid Pattern */
-    .grid-pattern {
-      mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
     }
 
     /* Animations */
@@ -176,8 +171,7 @@
       const pathData = `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}`;
 
       const strokeColor = isDark ? "#71717a" : "#a1a1aa"; // Zinc-500 / Zinc-400
-      const hoverColor = isDark ? "#818cf8" : "#4f46e5"; // Indigo-400 / Indigo-600
-
+      
       return (
         <g className="group pointer-events-auto">
           {/* Hit area */}
@@ -280,7 +274,6 @@
       const [edges, setEdges] = useState([{ id: 'e1-2', from: '1', to: '2' }]);
       const [selectedIds, setSelectedIds] = useState(new Set());
       const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
-      const [scale, setScale] = useState(1); // Future-proofing
       const [dragState, setDragState] = useState({ isDragging: false, type: null });
       const [selectionBox, setSelectionBox] = useState(null);
       const [contextMenu, setContextMenu] = useState(null);
@@ -335,7 +328,6 @@
       };
       
       const downloadCode = () => {
-        // Mock Python Generation
         const code = `# AgentFlow Export\n# Generated at ${new Date().toISOString()}\n\nimport os\n\ndef main():\n    print("Workflow initialized...")\n`;
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([code], { type: 'text/plain' }));
@@ -357,13 +349,11 @@
           if (isSpacePressed) {
             setDragState({ isDragging: true, type: 'pan', startX: e.clientX, startY: e.clientY, initX: viewOffset.x, initY: viewOffset.y });
           } else {
-            // Start Lasso
             setDragState({ isDragging: true, type: 'lasso', startX: ex, startY: ey });
             setSelectionBox({ x: ex, y: ey, w: 0, h: 0 });
             setSelectedIds(new Set());
           }
         } else if (type === 'node') {
-          // Node Logic
           let newSel = new Set(selectedIds);
           if (e.shiftKey) {
             newSel.has(id) ? newSel.delete(id) : newSel.add(id);
@@ -377,7 +367,19 @@
           setDragState({ isDragging: true, type: 'nodes', startX: e.clientX, startY: e.clientY, posMap });
         } else if (type === 'connection') {
           const n = nodes.find(n => n.id === id);
-          setDragState({ isDragging: true, type: 'connection', from: id, startX: n.x + 240, startY: n.y + 40, currX: n.x + 240, currY: n.y + 40 });
+          // Set start pos relative to node connector
+          const startX = n.x + 240;
+          const startY = n.y + 40;
+          
+          setDragState({ 
+            isDragging: true, 
+            type: 'connection', 
+            from: id, 
+            startX, 
+            startY, 
+            currX: startX, 
+            currY: startY 
+          });
         }
       };
 
@@ -410,7 +412,6 @@
            };
            setSelectionBox(newBox);
            
-           // Collision detection
            const sel = new Set();
            const relX = newBox.x - viewOffset.x;
            const relY = newBox.y - viewOffset.y;
@@ -425,7 +426,10 @@
            setSelectedIds(sel);
         } else if (dragState.type === 'connection') {
            const rect = canvasRef.current.getBoundingClientRect();
-           setDragState(prev => ({ ...prev, currX: e.clientX - rect.left - viewOffset.x, currY: e.clientY - rect.top - viewOffset.y }));
+           // Update currX/currY relative to canvas viewOffset
+           const mouseX = e.clientX - rect.left - viewOffset.x;
+           const mouseY = e.clientY - rect.top - viewOffset.y;
+           setDragState(prev => ({ ...prev, currX: mouseX, currY: mouseY }));
         }
       };
 
@@ -435,9 +439,12 @@
            const rect = canvasRef.current.getBoundingClientRect();
            const mx = e.clientX - rect.left - viewOffset.x;
            const my = e.clientY - rect.top - viewOffset.y;
+           
+           // Hit detection for any node
            const target = nodes.find(n => mx >= n.x && mx <= n.x + 240 && my >= n.y && my <= n.y + 100);
            
            if (target && target.id !== dragState.from) {
+             // Prevent duplicates
              if (!edges.some(edge => edge.from === dragState.from && edge.to === target.id)) {
                setEdges(prev => [...prev, { id: generateId(), from: dragState.from, to: target.id }]);
              }
